@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<!-- saved from url=(0071)file:///C:/Users/JLEO/Downloads/sc_report_processor_tabs_roster_17.html -->
+<html lang="en" data-theme="dark"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SC Report Processor</title>
+<script src="./SC Report Processor 17_files/papaparse.min.js.download"></script>
+<script src="./SC Report Processor 17_files/chart.umd.min.js.download"></script>
+<style>
+  /* ── RESET ── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── THEME VARS ── */
+  :root {
+    --bg: #f5f5f3; --surface: #fff; --surface2: #efefed;
+    --border: #ddd; --border-light: #f0f0f0; --border-mid: #e5e5e5;
+    --text: #1a1a1a; --text-muted: #666; --text-hint: #888;
+    --bar-bg: #e5e5e5; --drop-hover: #f0f0ee;
+  }
+  [data-theme="dark"] {
+    --bg: #1a1a1a; --surface: #252525; --surface2: #2e2e2e;
+    --border: #3a3a3a; --border-light: #2e2e2e; --border-mid: #333;
+    --text: #f0f0ee; --text-muted: #999; --text-hint: #777;
+    --bar-bg: #3a3a3a; --drop-hover: #2e2e2e;
+  }
+
+  /* ── BASE ── */
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; transition: background 0.2s, color 0.2s; }
+  .container { max-width: 720px; margin: 0 auto; }
+
+  /* ── TOP BAR ── */
+  .top-bar { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; }
+  h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--text-muted); }
+  .dark-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); cursor: pointer; background: none; border: 0.5px solid var(--border); border-radius: 8px; padding: 6px 12px; font-family: inherit; white-space: nowrap; }
+  .dark-toggle:hover { background: var(--surface2); }
+  .toggle-track { width: 28px; height: 16px; border-radius: 8px; background: var(--bar-bg); position: relative; transition: background 0.2s; flex-shrink: 0; }
+  .toggle-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--text-hint); position: absolute; top: 2px; left: 2px; transition: left 0.2s, background 0.2s; }
+  [data-theme="dark"] .toggle-track { background: #534AB7; }
+  [data-theme="dark"] .toggle-thumb { left: 14px; background: #fff; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; align-items: center; border-bottom: 1.5px solid var(--border); margin-bottom: 1.5rem; }
+  .tabs-left { display: flex; align-items: center; }
+  .tabs-right { margin-left: auto; }
+  .tab { font-size: 14px; padding: 8px 20px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1.5px; color: var(--text-hint); background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; transition: color 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active-replen { color: #185FA5; border-bottom-color: #185FA5; font-weight: 500; }
+  .tab.active-putaway { color: #0F6E56; border-bottom-color: #0F6E56; font-weight: 500; }
+  .tab-settings { font-size: 14px; padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1.5px; color: var(--text-hint); background: none; border-top: none; border-left: 1px solid var(--border); border-right: none; font-family: inherit; transition: color 0.15s; }
+  .tab-settings:hover { color: var(--text); }
+  .tab-settings.active-settings { color: #7F77DD; border-bottom-color: #7F77DD; font-weight: 500; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── DROP ZONE ── */
+  .drop-zone { border: 1.5px dashed var(--border); border-radius: 12px; padding: 3rem; text-align: center; cursor: pointer; transition: background 0.15s; background: var(--surface); }
+  .drop-zone:hover, .drop-zone.dragover { background: var(--drop-hover); }
+  .drop-zone .icon { font-size: 36px; margin-bottom: 12px; color: var(--text-hint); }
+  .drop-zone p { color: var(--text); font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .drop-zone small { color: var(--text-hint); font-size: 13px; }
+
+  /* ── METRICS ── */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1rem; }
+  .metric { background: var(--surface2); border-radius: 8px; padding: 1rem; text-align: center; }
+  .metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .metric-value { font-size: 24px; font-weight: 500; color: var(--text); }
+  .metric-sub { font-size: 11px; color: var(--text-hint); margin-top: 4px; }
+  .progress-wrap { background: var(--bar-bg); border-radius: 4px; height: 5px; margin-top: 6px; overflow: hidden; }
+  .progress-fill-replen { height: 100%; border-radius: 4px; background: #185FA5; transition: width 0.4s; }
+  .progress-fill-putaway { height: 100%; border-radius: 4px; background: #0F6E56; transition: width 0.4s; }
+
+  /* ── CARDS & TABLES ── */
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 11px; font-weight: 500; color: var(--text-muted); padding: 8px 12px; border-bottom: 0.5px solid var(--border-mid); text-transform: uppercase; letter-spacing: 0.04em; }
+  td { padding: 10px 12px; border-bottom: 0.5px solid var(--border-light); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tfoot td { font-weight: 500; border-top: 0.5px solid var(--border); border-bottom: none; padding-top: 12px; }
+  .bar-wrap { background: var(--bar-bg); border-radius: 4px; height: 6px; flex: 1; overflow: hidden; }
+  .bar-fill-replen { height: 100%; border-radius: 4px; background: #185FA5; }
+  .bar-fill-putaway { height: 100%; border-radius: 4px; background: #0F6E56; }
+
+  /* ── BADGES ── */
+  .badge-replen { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 6px; background: #e8f0fb; color: #185FA5; margin: 2px; }
+  .badge-putaway { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 6px; background: #E1F5EE; color: #0F6E56; margin: 2px; }
+  [data-theme="dark"] .badge-replen { background: #0C447C; color: #B5D4F4; }
+  [data-theme="dark"] .badge-putaway { background: #085041; color: #9FE1CB; }
+  .shift-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 5px; margin-left: 8px; font-weight: 500; }
+  .shift-badge-1st { background: #FFF3CD; color: #C47B00; }
+  .shift-badge-2nd { background: #e8f0fb; color: #185FA5; }
+  [data-theme="dark"] .shift-badge-1st { background: #5C3A00; color: #FFD77A; }
+  [data-theme="dark"] .shift-badge-2nd { background: #0C447C; color: #B5D4F4; }
+
+  /* ── HEADER ROW ── */
+  .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .file-name { font-weight: 500; font-size: 15px; color: var(--text); }
+  .run-time { font-size: 12px; color: var(--text-hint); margin-top: 2px; }
+  .reset-btn-replen { font-family: inherit; font-size: 13px; padding: 6px 14px; border: 0.5px solid #185FA5; border-radius: 6px; background: #e8f0fb; cursor: pointer; color: #185FA5; font-weight: 500; }
+  .reset-btn-replen:hover { background: #B5D4F4; }
+  .reset-btn-putaway { font-family: inherit; font-size: 13px; padding: 6px 14px; border: 0.5px solid #0F6E56; border-radius: 6px; background: #E1F5EE; cursor: pointer; color: #0F6E56; font-weight: 500; }
+  .reset-btn-putaway:hover { background: #9FE1CB; }
+  [data-theme="dark"] .reset-btn-replen { background: #0C447C; color: #B5D4F4; border-color: #185FA5; }
+  [data-theme="dark"] .reset-btn-replen:hover { background: #185FA5; color: #fff; }
+  [data-theme="dark"] .reset-btn-putaway { background: #085041; color: #9FE1CB; border-color: #0F6E56; }
+  [data-theme="dark"] .reset-btn-putaway:hover { background: #0F6E56; color: #fff; }
+
+  /* ── ERROR ── */
+  .error-msg { border-radius: 8px; padding: 1rem; font-size: 14px; margin-bottom: 1rem; display: none; background: #fcebeb; border: 0.5px solid #f09595; color: #A32D2D; }
+  [data-theme="dark"] .error-msg { background: #501313; border-color: #A32D2D; color: #F7C1C1; }
+  .results { display: none; }
+  .excluded-label { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; }
+
+  /* ── CHART ── */
+  .chart-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 1.25rem 1.25rem 1rem; margin-bottom: 1rem; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .chart-title { font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .chart-controls { display: flex; align-items: center; gap: 6px; }
+  .chart-mode-btn { font-family: inherit; padding: 3px 8px; border-radius: 5px; cursor: pointer; border: 0.5px solid var(--border); background: none; color: var(--text-hint); transition: all 0.15s; display: flex; align-items: center; }
+  .chart-mode-btn.active { background: #e8f0fb; color: #185FA5; border-color: #185FA5; }
+  [data-theme="dark"] .chart-mode-btn.active { background: #0C447C; color: #B5D4F4; border-color: #185FA5; }
+  .chart-dl-btn { font-family: inherit; font-size: 11px; padding: 3px 9px; border-radius: 5px; cursor: pointer; border: 0.5px solid var(--border); background: none; color: var(--text-hint); text-decoration: none; display: inline-flex; align-items: center; }
+  .chart-dl-btn:hover { background: var(--surface2); color: var(--text); }
+  .chart-wrap { position: relative; height: 200px; }
+
+  /* ── SETTINGS ── */
+  .shift-label { font-size: 11px; color: var(--text-hint); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .shift-selector { display: flex; align-items: center; background: var(--surface2); border-radius: 10px; padding: 4px; gap: 4px; }
+  .shift-btn { flex: 1; font-family: inherit; font-size: 13px; font-weight: 500; padding: 8px 0; border: none; border-radius: 7px; cursor: pointer; background: none; color: var(--text-muted); transition: all 0.15s; text-align: center; }
+  .shift-btn:hover { color: var(--text); }
+  .shift-btn.active-1st { background: var(--surface); color: #C47B00; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .shift-btn.active-2nd { background: var(--surface); color: #185FA5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .roster-member { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 0.5px solid var(--border-light); font-size: 14px; color: var(--text); }
+  .roster-member:last-child { border-bottom: none; }
+  .roster-remove { background: none; border: none; cursor: pointer; color: var(--bar-bg); font-size: 20px; padding: 0 4px; font-family: inherit; line-height: 1; }
+  .roster-remove:hover { color: #A32D2D; }
+  .add-row { display: flex; gap: 8px; margin-top: 1rem; }
+  .add-row input { flex: 1; font-family: inherit; font-size: 14px; padding: 8px 12px; border: 0.5px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); outline: none; }
+  .add-row input:focus { border-color: #7F77DD; }
+  .add-btn { font-family: inherit; font-size: 13px; padding: 8px 16px; border: 0.5px solid #7F77DD; border-radius: 8px; background: #EEEDFE; cursor: pointer; color: #534AB7; white-space: nowrap; font-weight: 500; }
+  .add-btn:hover { background: #CECBF6; }
+  [data-theme="dark"] .add-btn { background: #3C3489; color: #CECBF6; border-color: #7F77DD; }
+  [data-theme="dark"] .add-btn:hover { background: #534AB7; color: #fff; }
+  .roster-notice { font-size: 12px; color: var(--text-hint); margin-top: 10px; }
+  .saved-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; background: #E1F5EE; color: #0F6E56; margin-left: 8px; opacity: 0; transition: opacity 0.3s; }
+  [data-theme="dark"] .saved-badge { background: #085041; color: #9FE1CB; }
+  .roster-count { font-size: 13px; color: var(--text-hint); }
+  .roster-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .roster-title { font-size: 15px; font-weight: 500; color: var(--text); }
+
+  /* ── GOALS ── */
+  .goals-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+  .goals-item { background: var(--surface2); border-radius: 8px; padding: 10px 14px; }
+  .goals-dept { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .goals-val { font-size: 22px; font-weight: 500; color: var(--text); }
+  .goals-drop-zone { border: 1.5px dashed var(--border); border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; font-size: 13px; color: var(--text-hint); background: var(--surface2); transition: background 0.15s; }
+  .goals-drop-zone:hover, .goals-drop-zone.dragover { background: var(--drop-hover); }
+  .goals-status { font-size: 12px; color: var(--text-hint); min-height: 16px; margin-top: 6px; }
+  .goals-manual-input { width: 100%; margin-top: 4px; font-family: inherit; font-size: 14px; padding: 6px 10px; border: 0.5px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); outline: none; }
+  .goals-manual-input:focus { border-color: #7F77DD; }
+  .goals-divider { margin-top: 0.75rem; border-top: 0.5px solid var(--border); padding-top: 0.75rem; }
+  .goals-manual-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* ── FOOTER ── */
+  .nordstrom-tag { font-size: 11px; color: var(--text-hint); text-align: center; margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div>
+      <h1>Stock Control Report Processor</h1>
+      <p class="subtitle" id="main-subtitle">2nd Shift · 2:15 PM – 1:00 AM · Upload CSV to process</p>
+    </div>
+    <button class="dark-toggle" onclick="toggleDark()">
+      <span id="toggle-label">Light mode</span>
+      <div class="toggle-track"><div class="toggle-thumb"></div></div>
+    </button>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tabs-left">
+      <button class="tab active-replen" id="tab-replen" onclick="switchTab(&#39;replen&#39;)">Replenishment</button>
+      <button class="tab" id="tab-putaway" onclick="switchTab(&#39;putaway&#39;)">Putaway</button>
+    </div>
+    <div class="tabs-right">
+      <button class="tab-settings" id="tab-settings" onclick="switchTab(&#39;settings&#39;)">⚙ Settings</button>
+    </div>
+  </div>
+
+  <!-- REPLEN TAB -->
+  <div class="tab-panel active" id="panel-replen">
+    <div id="replen-upload">
+      <div class="drop-zone" id="dz-replen" onclick="document.getElementById(&#39;fi-replen&#39;).click()">
+        <div class="icon">⬆</div>
+        <p>Drop replen report CSV here</p>
+        <small>or click to browse</small>
+        <input type="file" id="fi-replen" accept=".csv" style="display:none;">
+      </div>
+    </div>
+    <div class="error-msg" id="err-replen"></div>
+    <div class="results" id="res-replen">
+      <div class="header-row">
+        <div>
+          <div class="file-name" id="rn-replen"></div>
+          <div class="run-time" id="rt-replen"></div>
+        </div>
+        <button class="reset-btn-replen" onclick="resetPanel(&#39;replen&#39;)">↺ New file</button>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">Team Total</div><div class="metric-value" id="m-replen-total">—</div></div>
+        <div class="metric">
+          <div class="metric-label">Daily Goal</div>
+          <div class="metric-value" id="m-replen-goal">—</div>
+          <div class="metric-sub" id="m-replen-pct"></div>
+          <div class="progress-wrap" id="m-replen-pw" style="display:none;"><div class="progress-fill-replen" id="m-replen-pb" style="width:0%"></div></div>
+        </div>
+        <div class="metric"><div class="metric-label">Associates</div><div class="metric-value" id="m-replen-assoc">—</div></div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Associate</th><th style="text-align:right;">Completed Qty</th><th style="text-align:right;width:35%;">Share</th></tr></thead>
+          <tbody id="tb-replen"></tbody>
+          <tfoot><tr><td>Team total</td><td style="text-align:right;" id="ft-replen"></td><td></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="card" id="ex-replen-wrap" style="display:none;">
+        <div class="excluded-label">Excluded associates</div>
+        <div id="ex-replen-list"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Completed quantity by hour</div>
+          <div class="chart-controls">
+            <button class="chart-mode-btn active" id="mode-smooth-replen" onclick="setMode(&#39;replen&#39;,&#39;smooth&#39;)" title="Smooth">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="none"><path d="M1 10 C4 10 4 2 9 2 C14 2 14 10 17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"></path></svg>
+            </button>
+            <button class="chart-mode-btn" id="mode-spiky-replen" onclick="setMode(&#39;replen&#39;,&#39;spiky&#39;)" title="Spiky">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="none"><polyline points="1,10 5,10 7,2 9,10 11,2 13,10 17,10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"></polyline></svg>
+            </button>
+            <a class="chart-dl-btn" onclick="downloadChart(&#39;chart-replen&#39;,&#39;replen-chart&#39;)">↓ Save</a>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-replen"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PUTAWAY TAB -->
+  <div class="tab-panel" id="panel-putaway">
+    <div id="putaway-upload">
+      <div class="drop-zone" id="dz-putaway" onclick="document.getElementById(&#39;fi-putaway&#39;).click()">
+        <div class="icon">⬆</div>
+        <p>Drop putaway report CSV here</p>
+        <small>or click to browse</small>
+        <input type="file" id="fi-putaway" accept=".csv" style="display:none;">
+      </div>
+    </div>
+    <div class="error-msg" id="err-putaway"></div>
+    <div class="results" id="res-putaway">
+      <div class="header-row">
+        <div>
+          <div class="file-name" id="rn-putaway"></div>
+          <div class="run-time" id="rt-putaway"></div>
+        </div>
+        <button class="reset-btn-putaway" onclick="resetPanel(&#39;putaway&#39;)">↺ New file</button>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">Team Total</div><div class="metric-value" id="m-putaway-total">—</div></div>
+        <div class="metric">
+          <div class="metric-label">Daily Goal</div>
+          <div class="metric-value" id="m-putaway-goal">—</div>
+          <div class="metric-sub" id="m-putaway-pct"></div>
+          <div class="progress-wrap" id="m-putaway-pw" style="display:none;"><div class="progress-fill-putaway" id="m-putaway-pb" style="width:0%"></div></div>
+        </div>
+        <div class="metric"><div class="metric-label">Associates</div><div class="metric-value" id="m-putaway-assoc">—</div></div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Associate</th><th style="text-align:right;">Putaway Count</th><th style="text-align:right;width:35%;">Share</th></tr></thead>
+          <tbody id="tb-putaway"></tbody>
+          <tfoot><tr><td>Team total</td><td style="text-align:right;" id="ft-putaway"></td><td></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="card" id="ex-putaway-wrap" style="display:none;">
+        <div class="excluded-label">Excluded associates</div>
+        <div id="ex-putaway-list"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Putaway count by hour</div>
+          <div class="chart-controls">
+            <button class="chart-mode-btn active" id="mode-smooth-putaway" onclick="setMode(&#39;putaway&#39;,&#39;smooth&#39;)" title="Smooth">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="none"><path d="M1 10 C4 10 4 2 9 2 C14 2 14 10 17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"></path></svg>
+            </button>
+            <button class="chart-mode-btn" id="mode-spiky-putaway" onclick="setMode(&#39;putaway&#39;,&#39;spiky&#39;)" title="Spiky">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="none"><polyline points="1,10 5,10 7,2 9,10 11,2 13,10 17,10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"></polyline></svg>
+            </button>
+            <a class="chart-dl-btn" onclick="downloadChart(&#39;chart-putaway&#39;,&#39;putaway-chart&#39;)">↓ Save</a>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-putaway"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="tab-panel" id="panel-settings">
+
+    <!-- Shift selector -->
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="shift-label">Active shift</div>
+      <div class="shift-selector">
+        <button class="shift-btn" id="shift-btn-1st" onclick="setShift(&#39;1st&#39;)">☀ 1st Shift &nbsp;<span style="font-size:11px;opacity:0.7;">3:00 AM – 1:45 PM</span></button>
+        <button class="shift-btn active-2nd" id="shift-btn-2nd" onclick="setShift(&#39;2nd&#39;)">☾ 2nd Shift &nbsp;<span style="font-size:11px;opacity:0.7;">2:15 PM – 1:00 AM</span></button>
+      </div>
+      <p class="roster-notice" style="margin-top:8px;">Switching shifts changes the active team roster and chart time window.</p>
+    </div>
+
+    <!-- Roster -->
+    <div class="card">
+      <div class="roster-header">
+        <div class="roster-title">Team members <span id="shift-roster-label" style="font-size:12px;color:var(--text-hint);margin-left:4px;">(2nd shift)</span> <span class="saved-badge" id="saved-badge">Saved ✓</span></div>
+        <div class="roster-count" id="roster-count">7 members</div>
+      </div>
+      <p style="font-size:13px;color:var(--text-hint);margin-bottom:1rem;">Changes save automatically and apply to reports instantly.</p>
+      <div id="roster-list"><div class="roster-member"><span>gershon.york@nordstrom.com</span><button class="roster-remove" onclick="removeMember(&#39;gershon.york@nordstrom.com&#39;)" title="Remove">×</button></div><div class="roster-member"><span>hector.sosa@nordstrom.com</span><button class="roster-remove" onclick="removeMember(&#39;hector.sosa@nordstrom.com&#39;)" title="Remove">×</button></div><div class="roster-member"><span>kevin.smith1@nordstrom.com</span><button class="roster-remove" onclick="removeMember(&#39;kevin.smith1@nordstrom.com&#39;)" title="Remove">×</button></div><div class="roster-member"><span>yahir.leon@nordstrom.com</span><button class="roster-remove" onclick="removeMember(&#39;yahir.leon@nordstrom.com&#39;)" title="Remove">×</button></div><div class="roster-member"><span>rj.thatruth.19@gmail.com</span><button class="roster-remove" onclick="removeMember(&#39;rj.thatruth.19@gmail.com&#39;)" title="Remove">×</button></div><div class="roster-member"><span>yoczanfroylan@gmail.com</span><button class="roster-remove" onclick="removeMember(&#39;yoczanfroylan@gmail.com&#39;)" title="Remove">×</button></div><div class="roster-member"><span>eduardoalejandre82@gmail.com</span><button class="roster-remove" onclick="removeMember(&#39;eduardoalejandre82@gmail.com&#39;)" title="Remove">×</button></div></div>
+      <div class="add-row">
+        <input type="text" id="new-email" placeholder="associate@nordstrom.com">
+        <button class="add-btn" onclick="addMember()">+ Add</button>
+      </div>
+      <p class="roster-notice">⚠ Roster saves to this browser only. Each device needs to be set up once.</p>
+    </div>
+
+    <!-- Daily goals -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="roster-header">
+        <div class="roster-title">Daily goals <span class="saved-badge" id="goals-saved-badge">Saved ✓</span></div>
+        <div style="font-size:12px;color:var(--text-hint);" id="goals-date-label">Set 6/3/2026</div>
+      </div>
+      <p style="font-size:13px;color:var(--text-hint);margin-bottom:1rem;">Drop a CSV export of the goals sheet — Replen and Putaway goals are read automatically.</p>
+      <div id="goals-current" style="display: block; margin-bottom: 1rem;">
+        <div class="goals-row">
+          <div class="goals-item"><div class="goals-dept">Stock Control Replen</div><div class="goals-val" id="goal-replen-display">5,253</div></div>
+          <div class="goals-item"><div class="goals-dept">Stock Control Putaway</div><div class="goals-val" id="goal-putaway-display">32</div></div>
+        </div>
+      </div>
+      <div class="goals-drop-zone" id="goals-dz" onclick="document.getElementById(&#39;goals-file&#39;).click()">
+        <span id="goals-dz-label">📋 Drop goals CSV here or click to browse</span>
+        <input type="file" id="goals-file" accept=".csv" style="display:none;">
+      </div>
+      <div class="goals-status" id="goals-status"></div>
+      <div class="goals-divider">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Or enter goals manually:</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><label class="goals-manual-label">Replen goal</label><input type="number" id="manual-replen-goal" class="goals-manual-input" placeholder="e.g. 5253"></div>
+          <div><label class="goals-manual-label">Putaway goal</label><input type="number" id="manual-putaway-goal" class="goals-manual-input" placeholder="e.g. 32"></div>
+        </div>
+        <button class="add-btn" onclick="saveManualGoals()" style="margin-top:8px;width:100%;text-align:center;">Save manual goals</button>
+      </div>
+      <p class="roster-notice" style="margin-top:8px;">Goals save to this browser until updated.</p>
+    </div>
+
+    <p class="nordstrom-tag" style="margin-top:1.5rem;">v1.0</p>
+  </div>
+
+  <p class="nordstrom-tag">Nordstrom · Stock Control · Last updated: <span id="last-updated">6/3/2026</span></p>
+</div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────
+const DEFAULT_TEAM_2ND = ['gershon.york@nordstrom.com','hector.sosa@nordstrom.com','kevin.smith1@nordstrom.com','yahir.leon@nordstrom.com','rj.thatruth.19@gmail.com','yoczanfroylan@gmail.com','eduardoalejandre82@gmail.com'];
+const DEFAULT_TEAM_1ST = ['john.smith@nordstrom.com','jane.doe@nordstrom.com','alex.johnson@nordstrom.com','maria.garcia@nordstrom.com','chris.lee@nordstrom.com'];
+const STORAGE_KEY_2ND = 'sc_roster_2nd_v1';
+const STORAGE_KEY_1ST = 'sc_roster_1st_v1';
+const GOALS_KEY = 'sc_goals_v1';
+const SHIFT_KEY = 'sc_shift_v1';
+const SHIFT_BOUNDS = { '1st': {start:3, end:13}, '2nd': {start:14, end:25} };
+
+let charts = {replen: null, putaway: null};
+const chartModes = {replen: 'smooth', putaway: 'smooth'};
+const chartData = {replen: {labels:[], data:[]}, putaway: {labels:[], data:[]}};
+const lastUpload = {replen: {rows:null, fileName:null}, putaway: {rows:null, fileName:null}};
+
+// ── THEME ──────────────────────────────────────────────
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.getElementById('toggle-label').textContent = dark ? 'Light mode' : 'Dark mode';
+  Object.values(charts).forEach(c => { if (c) updateChartTheme(c, dark); });
+}
+function updateChartTheme(chart, dark) {
+  const grid = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  const tick = dark ? '#777' : '#888';
+  chart.options.scales.x.ticks.color = tick;
+  chart.options.scales.y.ticks.color = tick;
+  chart.options.scales.x.grid.color = grid;
+  chart.options.scales.y.grid.color = grid;
+  chart.update('none');
+}
+applyTheme(prefersDark.matches);
+prefersDark.addEventListener('change', e => applyTheme(e.matches));
+function toggleDark() { applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark'); }
+
+// ── TABS ───────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('tab-replen').className = 'tab' + (tab === 'replen' ? ' active-replen' : '');
+  document.getElementById('tab-putaway').className = 'tab' + (tab === 'putaway' ? ' active-putaway' : '');
+  document.getElementById('tab-settings').className = 'tab-settings' + (tab === 'settings' ? ' active-settings' : '');
+  ['replen','putaway','settings'].forEach(t => {
+    document.getElementById('panel-' + t).className = 'tab-panel' + (t === tab ? ' active' : '');
+  });
+  if (tab === 'settings') { renderRoster(); renderGoalsCard(); }
+}
+
+// ── SHIFT ──────────────────────────────────────────────
+function getShift() { try { return localStorage.getItem(SHIFT_KEY) || '2nd'; } catch(e) { return '2nd'; } }
+function setShift(shift) {
+  try { localStorage.setItem(SHIFT_KEY, shift); } catch(e) {}
+  document.getElementById('shift-btn-1st').className = 'shift-btn' + (shift === '1st' ? ' active-1st' : '');
+  document.getElementById('shift-btn-2nd').className = 'shift-btn' + (shift === '2nd' ? ' active-2nd' : '');
+  document.getElementById('shift-roster-label').textContent = '(' + shift + ' shift)';
+  document.getElementById('main-subtitle').textContent = (shift === '1st' ? '1st Shift · 3:00 AM – 1:45 PM' : '2nd Shift · 2:15 PM – 1:00 AM') + ' · Upload CSV to process';
+  renderRoster();
+  // Re-process any active uploads with new shift
+  ['replen','putaway'].forEach(type => {
+    const u = lastUpload[type];
+    if (u && u.rows && u.fileName) processData(u.rows, u.fileName, type);
+  });
+}
+
+// ── ROSTER ─────────────────────────────────────────────
+function getRosterKey() { return getShift() === '1st' ? STORAGE_KEY_1ST : STORAGE_KEY_2ND; }
+function loadRoster() { try { const s = localStorage.getItem(getRosterKey()); if (s) return JSON.parse(s); } catch(e) {} return getShift() === '1st' ? [...DEFAULT_TEAM_1ST] : [...DEFAULT_TEAM_2ND]; }
+function saveRoster(r) { try { localStorage.setItem(getRosterKey(), JSON.stringify(r)); flashBadge('saved-badge'); } catch(e) {} }
+function getTeamSet() { return new Set(loadRoster()); }
+function renderRoster() {
+  const roster = loadRoster(), list = document.getElementById('roster-list');
+  list.innerHTML = '';
+  document.getElementById('roster-count').textContent = roster.length + ' member' + (roster.length !== 1 ? 's' : '');
+  roster.forEach(email => {
+    const div = document.createElement('div'); div.className = 'roster-member';
+    div.innerHTML = '<span>' + email + '</span><button class="roster-remove" onclick="removeMember(\'' + email + '\')" title="Remove">&times;</button>';
+    list.appendChild(div);
+  });
+}
+function addMember() {
+  const input = document.getElementById('new-email'), email = input.value.trim().toLowerCase();
+  if (!email || !email.includes('@')) { input.style.borderColor = '#f09595'; setTimeout(() => input.style.borderColor = '', 1000); return; }
+  const roster = loadRoster();
+  if (roster.includes(email)) { input.style.borderColor = '#FAC775'; setTimeout(() => input.style.borderColor = '', 1000); return; }
+  roster.push(email); saveRoster(roster); input.value = ''; renderRoster();
+}
+function removeMember(email) { saveRoster(loadRoster().filter(e => e !== email)); renderRoster(); }
+document.getElementById('new-email').addEventListener('keydown', e => { if (e.key === 'Enter') addMember(); });
+
+// ── GOALS ──────────────────────────────────────────────
+function loadGoals() { try { const s = localStorage.getItem(GOALS_KEY); if (s) return JSON.parse(s); } catch(e) {} return {replen: null, putaway: null, date: null}; }
+function saveGoals(g) { try { localStorage.setItem(GOALS_KEY, JSON.stringify(g)); flashBadge('goals-saved-badge'); } catch(e) {} }
+function flashBadge(id) { const b = document.getElementById(id); if (b) { b.style.opacity = '1'; setTimeout(() => b.style.opacity = '0', 1800); } }
+
+function renderGoalsCard() {
+  const g = loadGoals(), cur = document.getElementById('goals-current');
+  if (g.replen || g.putaway) {
+    cur.style.display = 'block';
+    document.getElementById('goal-replen-display').textContent = g.replen ? g.replen.toLocaleString() : '—';
+    document.getElementById('goal-putaway-display').textContent = g.putaway ? g.putaway.toLocaleString() : '—';
+    document.getElementById('goals-date-label').textContent = g.date ? 'Set ' + g.date : '';
+  } else {
+    cur.style.display = 'none';
+    document.getElementById('goals-date-label').textContent = '';
+  }
+}
+
+function updateGoalMetric(type, actual) {
+  const g = loadGoals(), goal = type === 'replen' ? g.replen : g.putaway;
+  const goalEl = document.getElementById('m-' + type + '-goal');
+  const pctEl = document.getElementById('m-' + type + '-pct');
+  const pw = document.getElementById('m-' + type + '-pw');
+  const pb = document.getElementById('m-' + type + '-pb');
+  if (!goal) { goalEl.textContent = 'No goal set'; pctEl.textContent = 'Set in Settings'; pw.style.display = 'none'; return; }
+  const pct = Math.min(Math.round((actual / goal) * 100), 100);
+  const over = actual >= goal;
+  goalEl.textContent = goal.toLocaleString();
+  pctEl.textContent = (over ? '✓ ' : '') + pct + '% of goal' + (over ? ' — exceeded!' : '');
+  pctEl.style.color = over ? '#0F6E56' : (pct >= 75 ? '#B07B00' : 'var(--text-hint)');
+  pw.style.display = 'block';
+  pb.style.width = pct + '%';
+}
+
+function saveManualGoals() {
+  const r = parseInt(document.getElementById('manual-replen-goal').value);
+  const p = parseInt(document.getElementById('manual-putaway-goal').value);
+  if (isNaN(r) && isNaN(p)) return;
+  const existing = loadGoals();
+  saveGoals({replen: isNaN(r) ? existing.replen : Math.ceil(r), putaway: isNaN(p) ? existing.putaway : Math.ceil(p), date: new Date().toLocaleDateString()});
+  renderGoalsCard();
+  document.getElementById('goals-status').textContent = '✓ Saved';
+  setTimeout(() => document.getElementById('goals-status').textContent = '', 2000);
+}
+
+function processGoalsCsv(file) {
+  const status = document.getElementById('goals-status');
+  status.textContent = 'Reading...';
+  Papa.parse(file, { header: false, skipEmptyLines: true, complete: function(res) {
+    try {
+      const rows = res.data;
+      let replenGoal = null, putawayGoal = null, goalColIdx = -1, deptColIdx = -1;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        for (let j = 0; j < row.length; j++) {
+          const cell = (row[j] || '').toString().trim().toLowerCase();
+          if (cell === 'planned goal') goalColIdx = j;
+          if (cell === 'department') deptColIdx = j;
+        }
+        if (goalColIdx > -1 && deptColIdx > -1) break;
+      }
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const dept = deptColIdx > -1 ? (row[deptColIdx] || '').toString().toLowerCase() : row.join(' ').toLowerCase();
+        const valCol = goalColIdx > -1 ? row[goalColIdx] : null;
+        if (dept.includes('stock control') && dept.includes('replen')) {
+          const v = valCol ? parseFloat(valCol.toString().replace(/,/g,'')) : null;
+          if (v && !isNaN(v)) replenGoal = Math.ceil(v);
+        }
+        if (dept.includes('stock control') && dept.includes('putaway')) {
+          const v = valCol ? parseFloat(valCol.toString().replace(/,/g,'')) : null;
+          if (v && !isNaN(v)) putawayGoal = Math.ceil(v);
+        }
+      }
+      if (!replenGoal && !putawayGoal) throw new Error('Could not find goal values');
+      const existing = loadGoals();
+      saveGoals({replen: replenGoal || existing.replen, putaway: putawayGoal || existing.putaway, date: new Date().toLocaleDateString()});
+      renderGoalsCard();
+      status.textContent = '✓ Goals updated';
+      document.getElementById('goals-dz-label').textContent = '📋 Drop new goals CSV or click to browse';
+      setTimeout(() => status.textContent = '', 3000);
+    } catch(err) {
+      status.textContent = '⚠ Could not read — try manual entry';
+      setTimeout(() => status.textContent = '', 4000);
+    }
+  }});
+}
+
+// ── FILE HANDLING ──────────────────────────────────────
+// Using exact same pattern as working v2 file
+const dzReplen = document.getElementById('dz-replen');
+const fiReplen = document.getElementById('fi-replen');
+dzReplen.addEventListener('dragover', e => { e.preventDefault(); dzReplen.classList.add('dragover'); });
+dzReplen.addEventListener('dragleave', () => dzReplen.classList.remove('dragover'));
+dzReplen.addEventListener('drop', e => { e.preventDefault(); dzReplen.classList.remove('dragover'); handleFile(e.dataTransfer.files[0], 'replen'); });
+fiReplen.addEventListener('change', () => handleFile(fiReplen.files[0], 'replen'));
+
+const dzPutaway = document.getElementById('dz-putaway');
+const fiPutaway = document.getElementById('fi-putaway');
+dzPutaway.addEventListener('dragover', e => { e.preventDefault(); dzPutaway.classList.add('dragover'); });
+dzPutaway.addEventListener('dragleave', () => dzPutaway.classList.remove('dragover'));
+dzPutaway.addEventListener('drop', e => { e.preventDefault(); dzPutaway.classList.remove('dragover'); handleFile(e.dataTransfer.files[0], 'putaway'); });
+fiPutaway.addEventListener('change', () => handleFile(fiPutaway.files[0], 'putaway'));
+
+const goalsDz = document.getElementById('goals-dz');
+const goalsFile = document.getElementById('goals-file');
+goalsDz.addEventListener('dragover', e => { e.preventDefault(); goalsDz.classList.add('dragover'); });
+goalsDz.addEventListener('dragleave', () => goalsDz.classList.remove('dragover'));
+goalsDz.addEventListener('drop', e => { e.preventDefault(); goalsDz.classList.remove('dragover'); if (e.dataTransfer.files[0]) processGoalsCsv(e.dataTransfer.files[0]); });
+goalsFile.addEventListener('change', () => { if (goalsFile.files[0]) processGoalsCsv(goalsFile.files[0]); });
+
+function showError(type, msg) { const el = document.getElementById('err-' + type); el.textContent = msg; el.style.display = 'block'; }
+
+function handleFile(file, type) {
+  if (!file) return;
+  document.getElementById('err-' + type).style.display = 'none';
+  Papa.parse(file, { header: true, skipEmptyLines: true, complete: r => {
+    lastUpload[type] = {rows: r.data, fileName: file.name};
+    processData(r.data, file.name, type);
+  }});
+}
+
+function processData(rows, fileName, type) {
+  if (type === 'replen') {
+    const replenTx = ['iLPN Replen Fill','Retail iLPN Replen Pull','iLPN Replen Pull','iLPN Replen Fill Large','iLPN Replen Pull Large'];
+    const filtered = rows.filter(r => replenTx.includes((r['Transaction ID'] || '').trim()));
+    if (!filtered.length) { showError(type, 'No replenishment transactions found. Please check you uploaded the correct report.'); return; }
+    renderReplen(filtered, fileName);
+  } else {
+    const filtered = rows.filter(r => (r['Transaction Type'] || '').trim() === 'Putaway' && (parseFloat(r['Completed Quantity']) || 0) > 0);
+    if (!filtered.length) { showError(type, 'No Putaway transactions found. Please check you uploaded the correct report.'); return; }
+    renderPutaway(filtered, fileName);
+  }
+}
+
+// ── RENDER ─────────────────────────────────────────────
+function shiftBadge() {
+  const s = getShift();
+  return '<span class="shift-badge shift-badge-' + s + '">' + s + ' shift</span>';
+}
+
+function renderReplen(rows, fileName) {
+  const TEAM = getTeamSet(), totals = {}, excluded = new Set();
+  rows.forEach(r => {
+    const e = (r['Employee'] || '').trim(), q = parseFloat(r['Completed Quantity']) || 0;
+    if (TEAM.has(e)) totals[e] = (totals[e] || 0) + q;
+    else if (e) excluded.add(e);
+  });
+  const sorted = Object.entries(totals).sort((a,b) => b[1]-a[1]);
+  const grand = sorted.reduce((s,[,v]) => s+v, 0);
+  document.getElementById('rn-replen').innerHTML = fileName + shiftBadge();
+  document.getElementById('rt-replen').textContent = 'Processed ' + new Date().toLocaleString();
+  document.getElementById('m-replen-total').textContent = grand.toLocaleString();
+  document.getElementById('m-replen-assoc').textContent = sorted.length;
+  document.getElementById('ft-replen').textContent = grand.toLocaleString();
+  buildTable('tb-replen', sorted, grand, 'replen');
+  buildExcluded('ex-replen', excluded, 'replen');
+  updateGoalMetric('replen', grand);
+  const teamRows = rows.filter(r => TEAM.has((r['Employee'] || '').trim()));
+  const hourly = buildHourlyChart(teamRows, 'Completed Quantity', false);
+  document.getElementById('replen-upload').style.display = 'none';
+  document.getElementById('res-replen').style.display = 'block';
+  setTimeout(() => drawChart('chart-replen', 'replen', hourly.labels, hourly.data, chartModes.replen), 50);
+}
+
+function renderPutaway(rows, fileName) {
+  const TEAM = getTeamSet(), counts = {}, excluded = new Set();
+  rows.forEach(r => {
+    const e = (r['Employee'] || '').trim();
+    if (TEAM.has(e)) counts[e] = (counts[e] || 0) + 1;
+    else if (e) excluded.add(e);
+  });
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  const grand = sorted.reduce((s,[,v]) => s+v, 0);
+  document.getElementById('rn-putaway').innerHTML = fileName + shiftBadge();
+  document.getElementById('rt-putaway').textContent = 'Processed ' + new Date().toLocaleString();
+  document.getElementById('m-putaway-total').textContent = grand.toLocaleString();
+  document.getElementById('m-putaway-assoc').textContent = sorted.length;
+  document.getElementById('ft-putaway').textContent = grand.toLocaleString();
+  buildTable('tb-putaway', sorted, grand, 'putaway');
+  buildExcluded('ex-putaway', excluded, 'putaway');
+  updateGoalMetric('putaway', grand);
+  const teamRows = rows.filter(r => TEAM.has((r['Employee'] || '').trim()));
+  const hourly = buildHourlyChart(teamRows, null, true);
+  document.getElementById('putaway-upload').style.display = 'none';
+  document.getElementById('res-putaway').style.display = 'block';
+  setTimeout(() => drawChart('chart-putaway', 'putaway', hourly.labels, hourly.data, chartModes.putaway), 50);
+}
+
+function buildTable(tbId, sorted, grand, type) {
+  const tbody = document.getElementById(tbId); tbody.innerHTML = '';
+  sorted.forEach(([emp, val]) => {
+    const pct = grand > 0 ? Math.round((val/grand)*100) : 0;
+    const short = emp.split('@')[0];
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + short + '</td><td style="text-align:right;font-weight:500;">' + val.toLocaleString() + '</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="bar-wrap"><div class="bar-fill-' + type + '" style="width:' + pct + '%"></div></div><span style="font-size:12px;color:var(--text-hint);min-width:32px;text-align:right;">' + pct + '%</span></div></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function buildExcluded(prefix, excluded, type) {
+  const wrap = document.getElementById(prefix + '-wrap'), list = document.getElementById(prefix + '-list');
+  list.innerHTML = '';
+  if (excluded.size > 0) {
+    excluded.forEach(e => { const s = document.createElement('span'); s.className = 'badge-' + type; s.textContent = e.split('@')[0]; list.appendChild(s); });
+    wrap.style.display = 'block';
+  } else wrap.style.display = 'none';
+}
+
+function resetPanel(type) {
+  document.getElementById(type + '-upload').style.display = 'block';
+  document.getElementById('res-' + type).style.display = 'none';
+  document.getElementById('err-' + type).style.display = 'none';
+  document.getElementById('fi-' + type).value = '';
+  if (charts[type]) { charts[type].destroy(); charts[type] = null; }
+  lastUpload[type] = {rows: null, fileName: null};
+}
+
+// ── CHART ──────────────────────────────────────────────
+function parseDT(str) {
+  if (!str) return null;
+  const clean = str.replace(/\s+[A-Z]{2,4}$/, '').replace(' at ', ' ');
+  const d = new Date(clean);
+  return isNaN(d) ? null : d;
+}
+
+function formatHourLabel(h) {
+  const hNorm = h % 24;
+  const period = hNorm >= 12 ? 'PM' : 'AM';
+  const h12 = hNorm === 0 ? 12 : hNorm > 12 ? hNorm - 12 : hNorm;
+  return h12 + ':00 ' + period;
+}
+
+function buildHourlyChart(rows, valueKey, countMode) {
+  const shift = getShift(), bounds = SHIFT_BOUNDS[shift], rawMap = {};
+  rows.forEach(r => {
+    const d = parseDT(r['Activity Datetime']);
+    if (!d) return;
+    let h = d.getHours();
+    if (shift === '2nd' && h < 5) h += 24;
+    const val = countMode ? 1 : (parseFloat(r[valueKey]) || 0);
+    rawMap[h] = (rawMap[h] || 0) + val;
+  });
+  if (!Object.keys(rawMap).length) return {labels: [], data: []};
+  const validHours = Object.keys(rawMap).map(Number).filter(h => h >= bounds.start && h <= bounds.end);
+  if (!validHours.length) return {labels: [], data: []};
+  const startH = Math.max(bounds.start, Math.min(...validHours));
+  const endH = Math.min(bounds.end, Math.max(...validHours));
+  const labels = [], data = [];
+  for (let h = startH; h <= endH; h++) { labels.push(formatHourLabel(h)); data.push(rawMap[h] || 0); }
+  return {labels, data};
+}
+
+function drawChart(canvasId, type, labels, data, mode) {
+  mode = mode || 'smooth';
+  chartModes[type] = mode;
+  chartData[type] = {labels, data};
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const color = type === 'replen' ? '#185FA5' : '#0F6E56';
+  const fillColor = type === 'replen' ? 'rgba(24,95,165,0.1)' : 'rgba(15,110,86,0.1)';
+  const grid = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  const tick = isDark ? '#777' : '#888';
+  if (charts[type]) { charts[type].destroy(); charts[type] = null; }
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  charts[type] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: color, backgroundColor: fillColor, borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: color, fill: true, tension: mode === 'smooth' ? 0.35 : 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: {display: false}, tooltip: { callbacks: { label: ctx => (type === 'replen' ? 'Qty: ' : 'Count: ') + ctx.parsed.y.toLocaleString() } } },
+      scales: {
+        x: { ticks: {color: tick, font: {size: 11}, maxRotation: 45, autoSkip: false}, grid: {color: grid}, border: {display: false} },
+        y: { ticks: {color: tick, font: {size: 11}, precision: 0}, grid: {color: grid}, border: {display: false}, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function setMode(type, mode) {
+  const {labels, data} = chartData[type];
+  if (!labels.length) return;
+  ['smooth','spiky'].forEach(m => document.getElementById('mode-' + m + '-' + type).className = 'chart-mode-btn' + (m === mode ? ' active' : ''));
+  drawChart('chart-' + type, type, labels, data, mode);
+}
+
+function downloadChart(canvasId, filename) {
+  const link = document.createElement('a');
+  link.download = (filename || 'chart') + '.png';
+  link.href = document.getElementById(canvasId).toDataURL('image/png');
+  link.click();
+}
+
+// ── INIT ───────────────────────────────────────────────
+document.getElementById('last-updated').textContent = new Date().toLocaleDateString();
+setShift(getShift());
+renderRoster();
+renderGoalsCard();
+</script>
+
+
+</body></html>
